@@ -1,3 +1,3 @@
-# Energy Control Center PWA
-
-Upload these files to any HTTPS static host. On iPhone open the HTTPS URL in Safari and choose Share → Add to Home Screen.
+# Energy Control Center
+Modules: Overview, IBEX, ESO. Tuya removed completely.
+Publish with GitHub Pages from `main` / `/(root)`.
