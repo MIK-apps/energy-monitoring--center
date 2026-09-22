@@ -1,0 +1,10 @@
+{
+  "name": "Energy Control Center",
+  "short_name": "Energy Control",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#06111b",
+  "theme_color": "#071522",
+  "lang": "bg",
+  "icons": []
+}
