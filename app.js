@@ -1,36 +1,44 @@
 const sources=[
- ["АЕЦ Козлодуй",5,"#1d7fd3"],
- ["Кондензационни ТЕЦ",6,"#e47a21"],
- ["Топлофикационни ТЕЦ",9,"#d95b32"],
- ["Заводски ТЕЦ",11,"#a96b3f"],
- ["ВЕЦ",7,"#358bd1"],
- ["Малки ВЕЦ",10,"#4fa7e8"],
- ["ВяЕЦ",13,"#24c7bd"],
- ["ФЕЦ",8,"#e7b21f"],
- ["Био ЕЦ",12,"#69a94b"],
- ["ССЕЕ","ssee","#9b59b6"],
- ["Помпи ПАВЕЦ","pumps","#8d989d"]
+ ["АЕЦ Козлодуй", "#1d7fd3"],["Кондензационни ТЕЦ","#e47a21"],["Топлофикационни ТЕЦ","#d95b32"],
+ ["Заводски ТЕЦ","#a96b3f"],["ВЕЦ","#358bd1"],["Малки ВЕЦ","#4fa7e8"],["ВяЕЦ","#24c7bd"],
+ ["ФЕЦ","#e7b21f"],["Био ЕЦ","#69a94b"],["ССЕЕ","#9b59b6"],["Помпи ПАВЕЦ","#8d989d"]
 ];
-const body=document.getElementById("sourcesBody");
-sources.forEach((s,i)=>{const r=document.createElement("div");r.className="source-row";r.innerHTML=`<i class="source-accent" style="background:${s[2]}"></i><span class="source-name">${s[0]}</span><span class="source-value" id="src${i}">— MW</span>`;body.appendChild(r)});
-
-function rnd(min,max){return Math.round(min+Math.random()*(max-min))}
-function updateDemo(){
-  const vals=[rnd(950,1150),rnd(600,900),rnd(150,350),rnd(40,130),rnd(30,180),rnd(10,70),rnd(20,180),rnd(250,900),rnd(10,60),rnd(0,80),rnd(-250,250)];
-  vals.forEach((v,i)=>document.getElementById("src"+i).textContent=`${v} MW`);
-  const b5=rnd(1000,1050),b6=rnd(980,1030);
-  document.getElementById("b5").textContent=`${b5} MW`;
-  document.getElementById("b6").textContent=`${b6} MW`;
-  document.getElementById("total").textContent=`${b5+b6} MW`;
-  document.getElementById("nppUpdate").textContent="LIVE DEMO • "+new Date().toLocaleTimeString("bg-BG");
-  drawFlows();
+const srcBox=document.getElementById("sources");
+const srcEls=[];
+sources.forEach((s,i)=>{
+ const row=document.createElement("div"); row.className="source-row";
+ row.innerHTML=`<i class="source-accent" style="background:${s[1]}"></i><span class="source-name">${s[0]}</span><span class="source-value" id="src${i}">0 MW</span>`;
+ srcBox.appendChild(row); srcEls.push(row.querySelector(".source-value"));
+});
+function makeTicks(id,count=11){
+ const g=document.getElementById(id);
+ for(let i=0;i<count;i++){
+   const a=(-72+i*14.4)*Math.PI/180, cx=130,cy=145,r1=79,r2=89;
+   const x1=cx+Math.cos(a)*r1,y1=cy+Math.sin(a)*r1,x2=cx+Math.cos(a)*r2,y2=cy+Math.sin(a)*r2;
+   const l=document.createElementNS("http://www.w3.org/2000/svg","line");
+   l.setAttribute("x1",x1);l.setAttribute("y1",y1);l.setAttribute("x2",x2);l.setAttribute("y2",y2);g.appendChild(l);
+ }
 }
-function drawFlows(){
- const m=document.getElementById("flowMap");m.innerHTML="";
- const nodes=[["РОМЪНИЯ","export",8,14],["СЪРБИЯ","export",8,43],["БЪЛГАРИЯ","main",45,43],["СЕВЕРНА МАКЕДОНИЯ","import",68,14],["ГЪРЦИЯ","import",68,67],["ТУРЦИЯ","export",8,72]];
- nodes.forEach(n=>{const d=document.createElement("div");d.className="flow-node";d.style.left=n[2]+"%";d.style.top=n[3]+"%";d.innerHTML=`<b>${n[0]}</b><strong>${rnd(-500,700)} MW</strong>`;m.appendChild(d)});
+makeTicks("ticksTotal");makeTicks("ticksNpp");
+function setNeedle(id,value,max){
+ const pct=Math.max(0,Math.min(1,value/max));
+ const angle=-72+pct*144;
+ document.getElementById(id).style.transform=`rotate(${angle+90}deg)`;
 }
-function tickClock(){
+function update(){
+ const vals=[rnd(950,1150),rnd(600,900),rnd(150,350),rnd(40,130),rnd(30,180),rnd(10,70),rnd(20,180),rnd(250,900),rnd(10,60),rnd(0,80),rnd(-250,250)];
+ vals.forEach((v,i)=>srcEls[i].textContent=`${v.toLocaleString("bg-BG")} MW`);
+ const b5=rnd(1000,1050),b6=rnd(980,1030),npp=b5+b6;
+ const total=vals.slice(0,10).reduce((a,b)=>a+b,0);
+ document.getElementById("b5").textContent=`${b5} MW`;
+ document.getElementById("b6").textContent=`${b6} MW`;
+ document.getElementById("nppTotal").textContent=`${npp} MW`;
+ document.getElementById("nppMW").textContent=`${npp} MW`;
+ document.getElementById("totalMW").textContent=`${total.toLocaleString("bg-BG")} MW`;
+ setNeedle("needleTotal",total,10000);setNeedle("needleNpp",npp,2000);
+}
+function rnd(a,b){return Math.round(a+Math.random()*(b-a))}
+function clock(){
  const d=new Date();
  document.getElementById("clock").textContent=d.toLocaleTimeString("bg-BG",{hour12:false,timeZone:"Europe/Sofia"});
  document.getElementById("date").textContent=d.toLocaleDateString("bg-BG",{timeZone:"Europe/Sofia"});
@@ -41,4 +49,4 @@ document.getElementById("langBtn").onclick=()=>{
  document.getElementById("langBtn").textContent=lang==="BG"?"EN":"BG";
  document.querySelectorAll("[data-bg]").forEach(e=>e.textContent=e.dataset[lang.toLowerCase()]);
 };
-tickClock();updateDemo();setInterval(tickClock,1000);setInterval(updateDemo,1000);
+update();clock();setInterval(update,1000);setInterval(clock,1000);
