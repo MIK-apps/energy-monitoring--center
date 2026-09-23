@@ -1,310 +1,44 @@
-const API="https://api.energy-charts.info/price?bzn=BG";
-let pts=[];
+const sources=[
+ ["АЕЦ Козлодуй",5,"#1d7fd3"],
+ ["Кондензационни ТЕЦ",6,"#e47a21"],
+ ["Топлофикационни ТЕЦ",9,"#d95b32"],
+ ["Заводски ТЕЦ",11,"#a96b3f"],
+ ["ВЕЦ",7,"#358bd1"],
+ ["Малки ВЕЦ",10,"#4fa7e8"],
+ ["ВяЕЦ",13,"#24c7bd"],
+ ["ФЕЦ",8,"#e7b21f"],
+ ["Био ЕЦ",12,"#69a94b"],
+ ["ССЕЕ","ssee","#9b59b6"],
+ ["Помпи ПАВЕЦ","pumps","#8d989d"]
+];
+const body=document.getElementById("sourcesBody");
+sources.forEach((s,i)=>{const r=document.createElement("div");r.className="source-row";r.innerHTML=`<i class="source-accent" style="background:${s[2]}"></i><span class="source-name">${s[0]}</span><span class="source-value" id="src${i}">— MW</span>`;body.appendChild(r)});
 
-const $=id=>document.getElementById(id);
-
-function clock(){
-  const d=new Date();
-  if($("time"))
-    $("time").textContent=d.toLocaleTimeString("bg-BG",{hour:"2-digit",minute:"2-digit"});
-  if($("date"))
-    $("date").textContent=d.toLocaleDateString("bg-BG");
+function rnd(min,max){return Math.round(min+Math.random()*(max-min))}
+function updateDemo(){
+  const vals=[rnd(950,1150),rnd(600,900),rnd(150,350),rnd(40,130),rnd(30,180),rnd(10,70),rnd(20,180),rnd(250,900),rnd(10,60),rnd(0,80),rnd(-250,250)];
+  vals.forEach((v,i)=>document.getElementById("src"+i).textContent=`${v} MW`);
+  const b5=rnd(1000,1050),b6=rnd(980,1030);
+  document.getElementById("b5").textContent=`${b5} MW`;
+  document.getElementById("b6").textContent=`${b6} MW`;
+  document.getElementById("total").textContent=`${b5+b6} MW`;
+  document.getElementById("nppUpdate").textContent="LIVE DEMO • "+new Date().toLocaleTimeString("bg-BG");
+  drawFlows();
 }
-
-function setSystem(status){
-  if($("systemState")) $("systemState").textContent=status;
-
-  if($("systemDot")){
-    $("systemDot").classList.toggle("bad",status==="OFFLINE");
-  }
+function drawFlows(){
+ const m=document.getElementById("flowMap");m.innerHTML="";
+ const nodes=[["РОМЪНИЯ","export",8,14],["СЪРБИЯ","export",8,43],["БЪЛГАРИЯ","main",45,43],["СЕВЕРНА МАКЕДОНИЯ","import",68,14],["ГЪРЦИЯ","import",68,67],["ТУРЦИЯ","export",8,72]];
+ nodes.forEach(n=>{const d=document.createElement("div");d.className="flow-node";d.style.left=n[2]+"%";d.style.top=n[3]+"%";d.innerHTML=`<b>${n[0]}</b><strong>${rnd(-500,700)} MW</strong>`;m.appendChild(d)});
 }
-
-function setIbex(status,message=""){
-  if($("sourceStatus")){
-    $("sourceStatus").textContent=
-      message || (status==="ONLINE" ? "LIVE · Energy-Charts · BG" : "Data connection unavailable");
-    
-    const dot=$("sourceStatus").previousElementSibling;
-    if(dot){
-      dot.style.background=status==="ONLINE" ? "#2bd47f" : "#ff4d4d";
-    }
-  }
+function tickClock(){
+ const d=new Date();
+ document.getElementById("clock").textContent=d.toLocaleTimeString("bg-BG",{hour12:false,timeZone:"Europe/Sofia"});
+ document.getElementById("date").textContent=d.toLocaleDateString("bg-BG",{timeZone:"Europe/Sofia"});
 }
-
-function tabs(){
-  document.querySelectorAll(".tabs button").forEach(b=>{
-    b.onclick=()=>{
-      document.querySelectorAll(".tabs button")
-        .forEach(x=>x.classList.remove("active"));
-
-      document.querySelectorAll(".page")
-        .forEach(x=>x.classList.remove("active"));
-
-      b.classList.add("active");
-
-      const page=$(b.dataset.page);
-      if(page) page.classList.add("active");
-
-      draw();
-    };
-  });
-}
-
-async function load(){
-  // Самото приложение е ONLINE независимо от IBEX
-  setSystem("ONLINE");
-
-  setIbex("CONNECTING","CONNECTING · Energy-Charts");
-
-  try{
-    const r=await fetch(API,{cache:"no-store"});
-
-    if(!r.ok)
-      throw Error("HTTP "+r.status);
-
-    const j=await r.json();
-
-    if(!Array.isArray(j.unix_seconds) ||
-       !Array.isArray(j.price)){
-      throw Error("Invalid API response");
-    }
-
-    const day=new Date().toLocaleDateString(
-      "en-CA",
-      {timeZone:"Europe/Sofia"}
-    );
-
-    pts=j.unix_seconds
-      .map((t,i)=>({
-        ts:+t,
-        price:+j.price[i]
-      }))
-      .filter(x=>
-        Number.isFinite(x.price) &&
-        new Date(x.ts*1000)
-          .toLocaleDateString(
-            "en-CA",
-            {timeZone:"Europe/Sofia"}
-          )===day
-      );
-
-    if(!pts.length)
-      throw Error("No data for today");
-
-    render();
-
-    setIbex("ONLINE");
-
-  }catch(e){
-
-    console.error("IBEX:",e);
-
-    setIbex(
-      "OFFLINE",
-      "OFFLINE · "+e.message
-    );
-  }
-}
-
-function getCurrentIndex(){
-
-  if(!pts.length) return -1;
-
-  const now=Date.now();
-
-  let index=-1;
-
-  for(let i=0;i<pts.length;i++){
-
-    const start=pts[i].ts*1000;
-    const end=start+15*60*1000;
-
-    if(now>=start && now<end){
-      index=i;
-      break;
-    }
-  }
-
-  return index;
-}
-
-function render(){
-
-  if(!pts.length) return;
-
-  const v=pts.map(x=>x.price);
-
-  const mn=Math.min(...v);
-  const mx=Math.max(...v);
-  const av=v.reduce((a,b)=>a+b,0)/v.length;
-
-  const idx=getCurrentIndex();
-  const cur=idx>=0 ? pts[idx] : null;
-
-  if($("cur"))
-    $("cur").textContent=cur ? cur.price.toFixed(2) : "—";
-
-  if($("min"))
-    $("min").textContent=mn.toFixed(2);
-
-  if($("avg"))
-    $("avg").textContent=av.toFixed(2);
-
-  if($("max"))
-    $("max").textContent=mx.toFixed(2);
-
-  if($("ovPrice"))
-    $("ovPrice").textContent=cur ? cur.price.toFixed(2) : "—";
-
-  if($("ovBig"))
-    $("ovBig").innerHTML=
-      (cur ? cur.price.toFixed(2) : "—")+
-      ' <small>€/MWh</small>';
-
-  const b=$("prices");
-
-  if(b){
-
-    b.innerHTML="";
-
-    pts.forEach((p,i)=>{
-
-      const d=new Date(p.ts*1000);
-
-      const a=d.toLocaleTimeString(
-        "bg-BG",
-        {
-          timeZone:"Europe/Sofia",
-          hour:"2-digit",
-          minute:"2-digit"
-        }
-      );
-
-      const e=new Date(
-        p.ts*1000+900000
-      ).toLocaleTimeString(
-        "bg-BG",
-        {
-          timeZone:"Europe/Sofia",
-          hour:"2-digit",
-          minute:"2-digit"
-        }
-      );
-
-      const tr=document.createElement("tr");
-
-      if(i===idx)
-        tr.className="current";
-
-      tr.innerHTML=
-        `<td>${a}–${e}</td>`+
-        `<td><b>${p.price.toFixed(2)}</b></td>`+
-        `<td>${i===idx?'<span class="dot"></span>NOW':""}</td>`;
-
-      b.appendChild(tr);
-
-    });
-  }
-
-  draw();
-}
-
-function draw(){
-
-  ["chart","miniChart"].forEach(id=>{
-
-    const c=$(id);
-
-    if(!c) return;
-
-    const r=c.getBoundingClientRect();
-    const d=window.devicePixelRatio||1;
-
-    c.width=r.width*d;
-    c.height=r.height*d;
-
-    const x=c.getContext("2d");
-
-    x.setTransform(1,0,0,1,0,0);
-    x.scale(d,d);
-    x.clearRect(0,0,r.width,r.height);
-
-    if(!pts.length) return;
-
-    const v=pts.map(q=>q.price);
-
-    const lo=Math.min(...v);
-    const hi=Math.max(...v);
-    const range=hi-lo||1;
-
-    const p={
-      l:35,
-      r:8,
-      t:10,
-      b:20
-    };
-
-    const w=r.width-p.l-p.r;
-    const h=r.height-p.t-p.b;
-
-    x.strokeStyle="#18354a";
-    x.lineWidth=1;
-
-    for(let i=0;i<5;i++){
-
-      const y=p.t+h*i/4;
-
-      x.beginPath();
-      x.moveTo(p.l,y);
-      x.lineTo(r.width-p.r,y);
-      x.stroke();
-    }
-
-    x.beginPath();
-
-    pts.forEach((q,i)=>{
-
-      const xx=
-        p.l+
-        (pts.length>1
-          ? w*i/(pts.length-1)
-          : 0);
-
-      const yy=
-        p.t+
-        h*(hi-q.price)/range;
-
-      if(i)
-        x.lineTo(xx,yy);
-      else
-        x.moveTo(xx,yy);
-    });
-
-    x.strokeStyle="#2aaaff";
-    x.lineWidth=2;
-    x.stroke();
-  });
-}
-
-clock();
-tabs();
-load();
-
-setInterval(clock,1000);
-
-setInterval(
-  load,
-  15*60*1000
-);
-
-window.addEventListener(
-  "resize",
-  draw
-);
-
-if("serviceWorker" in navigator){
-
-  navigator.serviceWorker.register(
-    "service-worker.js"
-  ).catch(e=>console.error(e));
-}
+let lang="BG";
+document.getElementById("langBtn").onclick=()=>{
+ lang=lang==="BG"?"EN":"BG";
+ document.getElementById("langBtn").textContent=lang==="BG"?"EN":"BG";
+ document.querySelectorAll("[data-bg]").forEach(e=>e.textContent=e.dataset[lang.toLowerCase()]);
+};
+tickClock();updateDemo();setInterval(tickClock,1000);setInterval(updateDemo,1000);
